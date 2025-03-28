@@ -56,6 +56,9 @@ sentiment_df['review'] = truncated_reviews
 label_map = {"LABEL_0": "Negative", "LABEL_1": "Neutral", "LABEL_2": "Positive"}
 sentiment_df['label'] = sentiment_df['label'].map(label_map)
 
+# Save the sentiment analysis results to a CSV file
+sentiment_df.to_csv("sentiment_results.csv", index=False)
+
 # Display a summary of sentiment results
 print(sentiment_df[['review', 'label', 'score']].head())
 
