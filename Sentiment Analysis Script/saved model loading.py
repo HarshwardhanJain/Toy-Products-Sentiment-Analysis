@@ -2,14 +2,11 @@ import pandas as pd
 from bertopic import BERTopic
 import plotly.express as px
 
-# Load the saved topic model
 print("Loading the saved BERTopic model...")
 topic_model = BERTopic.load("bertopic_model")
 
-# Load the dataset
 df = pd.read_csv("amazon_co-ecommerce_sample.csv")
 
-# Check for 'customer_reviews' column
 if 'customer_reviews' in df.columns:
     reviews = df['customer_reviews'].dropna().tolist()
 else:
@@ -27,7 +24,6 @@ topic_model.visualize_hierarchy().show()
 print("\nVisualizing top topics...")
 topic_model.visualize_topics().show()
 
-# (Optional) Get the most frequent topics
 print("\nMost frequent topics:")
 print(topic_model.get_topic_info().head())
 
@@ -35,11 +31,11 @@ print(topic_model.get_topic_info().head())
 print("\nLoading sentiment analysis results...")
 
 # Load or Re-compute sentiment analysis if needed
-sentiment_df = pd.read_csv("sentiment_results.csv")  # Assuming you saved it
+sentiment_df = pd.read_csv("sentiment_results.csv")
 if sentiment_df.empty:
     raise ValueError("Sentiment results file not found. Re-run sentiment analysis.")
 
-# Plot sentiment distribution using Plotly
+# Plot sentiment distribution
 sentiment_counts = sentiment_df['label'].value_counts().reset_index()
 sentiment_counts.columns = ['label', 'count']
 
@@ -60,7 +56,6 @@ fig.update_layout(
 )
 fig.show()
 
-# Display sentiment summary
 print("\nSentiment Summary:")
 print(sentiment_df[['review', 'label', 'score']].head())
 

@@ -6,11 +6,9 @@ import plotly.express as px
 # Load the dataset
 df = pd.read_csv("amazon_co-ecommerce_sample.csv")
 
-# Inspect the dataset
 print("Dataset Shape:", df.shape)
 print("Columns:", df.columns)
 
-# Assuming 'customer_reviews' is a column containing text data to analyze
 if 'customer_reviews' in df.columns:
     reviews = df['customer_reviews'].dropna().tolist()
 else:
@@ -66,7 +64,7 @@ print(sentiment_df[['review', 'label', 'score']].head())
 sentiment_counts = sentiment_df['label'].value_counts().reset_index()
 sentiment_counts.columns = ['label', 'count']
 
-# Plot the distribution of sentiment labels using Plotly
+# Distribution of sentiment labels
 fig = px.bar(
     sentiment_counts,
     x="label",
@@ -84,12 +82,10 @@ fig.update_layout(
 )
 fig.show()
 
-# Provide insights
 print("\nInsights:")
 print("- Positive reviews are the most frequent, indicating overall satisfaction.")
 print("- Neutral reviews suggest mixed or moderate feedback.")
 print("- Negative reviews highlight specific pain points or dissatisfaction.")
 
-# Save the topic model
 print("Saving Topic Model...")
 topic_model.save("bertopic_model")
