@@ -2,6 +2,7 @@ import pandas as pd
 import logging
 import os
 import re
+import concurrent.futures
 from bertopic import BERTopic
 from transformers import pipeline, AutoTokenizer
 from sklearn.feature_extraction.text import CountVectorizer
@@ -160,9 +161,9 @@ def initialize_sentiment_pipeline():
     tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
     return sentiment_analyzer, tokenizer
 
-def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=None, batch_size=10):
+def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=None, batch_size=10, max_workers=4):
     """
-    Process sentiment analysis over the provided reviews in batches.
+    Process sentiment analysis over the provided reviews in batches using parallel processing.
     Reviews are tokenized and truncated to a maximum length for processing.
 
     Parameters:
@@ -171,26 +172,35 @@ def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_revie
         tokenizer: The associated tokenizer.
         max_reviews (int, optional): Limit number of reviews for processing.
         batch_size (int): Number of reviews to process in each batch.
+        max_workers (int): Maximum number of threads for parallel processing.
     
     Returns:
         pd.DataFrame: DataFrame containing reviews with sentiment predictions.
     """
-    if max_reviews:
+    if max_reviews is not None:
         reviews = reviews[:max_reviews]
-
-    all_results = []
-    all_truncated_reviews = []
-
-    for start in range(0, len(reviews), batch_size):
-        batch = reviews[start:start+batch_size]
+    
+    # Helper function to process a single batch
+    def process_batch(batch):
         truncated_batch = [
             tokenizer.decode(tokenizer.encode(review, max_length=512, truncation=True), skip_special_tokens=True)
             for review in batch
         ]
-        batch_results = sentiment_analyzer(truncated_batch)
-        all_results.extend(batch_results)
-        all_truncated_reviews.extend(truncated_batch)
+        batch_results = sentiment_analyzer(truncated_batch, batch_size=len(truncated_batch))
+        return batch_results, truncated_batch
 
+    batches = [reviews[i:i+batch_size] for i in range(0, len(reviews), batch_size)]
+    
+    all_results = []
+    all_truncated_reviews = []
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_batch = {executor.submit(process_batch, batch): batch for batch in batches}
+        for future in concurrent.futures.as_completed(future_to_batch):
+            batch_results, truncated_batch = future.result()
+            all_results.extend(batch_results)
+            all_truncated_reviews.extend(truncated_batch)
+            
     # Convert results into a DataFrame
     sentiment_df = pd.DataFrame(all_results)
     sentiment_df['review'] = all_truncated_reviews
@@ -246,9 +256,18 @@ def main():
     
     # Initialize the sentiment analysis pipeline
     sentiment_analyzer, tokenizer = initialize_sentiment_pipeline()
-    sentiment_df = process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=None, batch_size=10)
     
-    # Save sentiment analysis results with iterative naming
+    # Process sentiment analysis using parallel processing
+    sentiment_df = process_sentiment_analysis(
+        reviews, 
+        sentiment_analyzer, 
+        tokenizer, 
+        max_reviews=None, 
+        batch_size=10, 
+        max_workers=4
+    )
+    
+    # Save sentiment analysis results with iterative naming under a dedicated folder
     csv_save_path = get_iterative_path(r"4-Results-Data\sentiment_results", extension=".csv")
     sentiment_df.to_csv(csv_save_path, index=False)
     logger.info(f"Sentiment analysis results saved to '{csv_save_path}'.")
