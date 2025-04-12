@@ -1,5 +1,7 @@
 import pandas as pd
 import logging
+import os
+import re
 from bertopic import BERTopic
 from transformers import pipeline, AutoTokenizer
 from sklearn.feature_extraction.text import CountVectorizer
@@ -14,6 +16,26 @@ def configure_logger():
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
     return logging.getLogger(__name__)
+
+def get_iterative_path(base_path: str, extension: str = ""):
+    """
+    Returns a new file/directory path by appending an increasing counter to the base name
+    if a file/folder already exists.
+    
+    Parameters:
+        base_path (str): Base path without counter.
+        extension (str): Extension (e.g., ".csv") if needed.
+    
+    Returns:
+        str: A new file/directory path that does not exist.
+    """
+    new_path = base_path + extension
+    if not os.path.exists(new_path):
+        return new_path
+    counter = 1
+    while os.path.exists(f"{base_path}_{counter}{extension}"):
+        counter += 1
+    return f"{base_path}_{counter}{extension}"
 
 def load_reviews(file_path: str, column_name: str = "customer_reviews"):
     """
@@ -39,18 +61,43 @@ def load_reviews(file_path: str, column_name: str = "customer_reviews"):
         logger.error(f"Error loading reviews: {e}")
         raise
 
-def create_custom_topic_model():
+def preprocess_reviews(reviews):
+    """
+    Preprocess the review texts by converting to lowercase, removing
+    unnecessary whitespace and special characters.
+    
+    Parameters:
+        reviews (List[str]): Original review texts.
+    
+    Returns:
+        List[str]: Cleaned review texts.
+    """
+    processed = []
+    for review in reviews:
+        # Convert to lowercase
+        review = review.lower()
+        # Remove special characters (allow basic punctuation)
+        review = re.sub(r"[^a-z0-9\s.,!?']", "", review)
+        review = review.strip()
+        processed.append(review)
+    return processed
+
+def create_custom_topic_model(min_topic_size: int = 10):
     """
     Create a BERTopic model instance with a custom vectorizer.
     
-    Adjust the n-gram range and stop words to improve topic quality.
+    The vectorizer uses an n-gram range of (1, 2) and English stop words.
+    Further parameter tuning (e.g., stop word lists, n-gram ranges, etc.) 
+    can be done based on the dataset characteristics.
     
+    Parameters:
+        min_topic_size (int): Minimum size of topics.
+        
     Returns:
         BERTopic: A customized BERTopic model.
     """
     vectorizer_model = CountVectorizer(ngram_range=(1, 2), stop_words="english")
-    # min_topic_size can be tuned for your dataset's characteristics
-    topic_model = BERTopic(vectorizer_model=vectorizer_model, min_topic_size=10)
+    topic_model = BERTopic(vectorizer_model=vectorizer_model, min_topic_size=min_topic_size)
     return topic_model
 
 def train_topic_model(reviews):
@@ -113,16 +160,17 @@ def initialize_sentiment_pipeline():
     tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
     return sentiment_analyzer, tokenizer
 
-def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=None):
+def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=None, batch_size=10):
     """
-    Process sentiment analysis over the provided reviews. Reviews are tokenized and
-    truncated to a maximum length for processing.
+    Process sentiment analysis over the provided reviews in batches.
+    Reviews are tokenized and truncated to a maximum length for processing.
 
     Parameters:
         reviews (List[str]): List of review texts.
         sentiment_analyzer: The pre-initialized sentiment analysis pipeline.
         tokenizer: The associated tokenizer.
         max_reviews (int, optional): Limit number of reviews for processing.
+        batch_size (int): Number of reviews to process in each batch.
     
     Returns:
         pd.DataFrame: DataFrame containing reviews with sentiment predictions.
@@ -130,16 +178,22 @@ def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_revie
     if max_reviews:
         reviews = reviews[:max_reviews]
 
-    truncated_reviews = [
-        tokenizer.decode(tokenizer.encode(review, max_length=512, truncation=True), skip_special_tokens=True)
-        for review in reviews
-    ]
-    
-    results = sentiment_analyzer(truncated_reviews)
-    
+    all_results = []
+    all_truncated_reviews = []
+
+    for start in range(0, len(reviews), batch_size):
+        batch = reviews[start:start+batch_size]
+        truncated_batch = [
+            tokenizer.decode(tokenizer.encode(review, max_length=512, truncation=True), skip_special_tokens=True)
+            for review in batch
+        ]
+        batch_results = sentiment_analyzer(truncated_batch)
+        all_results.extend(batch_results)
+        all_truncated_reviews.extend(truncated_batch)
+
     # Convert results into a DataFrame
-    sentiment_df = pd.DataFrame(results)
-    sentiment_df['review'] = truncated_reviews
+    sentiment_df = pd.DataFrame(all_results)
+    sentiment_df['review'] = all_truncated_reviews
     
     # Map model labels to human-readable names
     label_map = {"LABEL_0": "Negative", "LABEL_1": "Neutral", "LABEL_2": "Positive"}
@@ -174,25 +228,30 @@ def main():
     logger = configure_logger()
     
     # Load the reviews from the dataset
-    file_path = "amazon_co-ecommerce_sample.csv"
+    file_path = r"1-Database\amazon_co-ecommerce_sample.csv"
     logger.info("Loading reviews from file.")
     reviews = load_reviews(file_path)
     logger.info(f"Loaded {len(reviews)} reviews.")
+    
+    # Preprocess reviews (e.g., lower-casing, cleaning text)
+    reviews = preprocess_reviews(reviews)
     
     # Train the hierarchical topic model
     topic_model, topics, probs = train_topic_model(reviews)
     hierarchical_topics = extract_hierarchical_topics(topic_model, reviews)
     
-    # Save the topic model for future predictions
-    save_topic_model(topic_model, path="bertopic_model")
+    # Save the topic model with iterative naming if previous versions exist
+    model_save_path = get_iterative_path(r"3-Saved-Model\bertopic_model")
+    save_topic_model(topic_model, path=model_save_path)
     
     # Initialize the sentiment analysis pipeline
     sentiment_analyzer, tokenizer = initialize_sentiment_pipeline()
-    sentiment_df = process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=100)
+    sentiment_df = process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_reviews=None, batch_size=10)
     
-    # Save sentiment analysis results for reference
-    sentiment_df.to_csv("sentiment_results.csv", index=False)
-    logger.info("Sentiment analysis results saved to 'sentiment_results.csv'.")
+    # Save sentiment analysis results with iterative naming
+    csv_save_path = get_iterative_path(r"4-Results-Data\sentiment_results", extension=".csv")
+    sentiment_df.to_csv(csv_save_path, index=False)
+    logger.info(f"Sentiment analysis results saved to '{csv_save_path}'.")
     
     # Optional: Visualize sentiment distribution for exploratory analysis
     visualize_sentiment(sentiment_df)
