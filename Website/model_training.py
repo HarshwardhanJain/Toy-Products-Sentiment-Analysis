@@ -8,14 +8,21 @@ from transformers import pipeline, AutoTokenizer
 from sklearn.feature_extraction.text import CountVectorizer
 import plotly.express as px
 
+# Define a module‐level logger. This ensures that even if configure_logger() is not called,
+# the logger variable exists.
+logger = logging.getLogger(__name__)
+
 def configure_logger():
     """
     Configure and return a logger for tracking execution.
+    This function sets up the basic configuration (if not already set)
+    and returns a logger instance.
     """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
+    # Reassign the module-level logger to include basic configuration.
     return logging.getLogger(__name__)
 
 def get_iterative_path(base_path: str, extension: str = ""):
@@ -75,9 +82,9 @@ def preprocess_reviews(reviews):
     """
     processed = []
     for review in reviews:
-        # Convert to lowercase
+        # Convert to lowercase.
         review = review.lower()
-        # Remove special characters (allow basic punctuation)
+        # Remove special characters (allow basic punctuation).
         review = re.sub(r"[^a-z0-9\s.,!?']", "", review)
         review = review.strip()
         processed.append(review)
@@ -157,6 +164,7 @@ def initialize_sentiment_pipeline():
         tokenizer: The associated tokenizer.
     """
     logger.info("Initializing sentiment analysis pipeline.")
+    # Using a pre-trained RoBERTa model for sentiment analysis.
     sentiment_analyzer = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment")
     tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
     return sentiment_analyzer, tokenizer
@@ -180,7 +188,7 @@ def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_revie
     if max_reviews is not None:
         reviews = reviews[:max_reviews]
     
-    # Helper function to process a single batch
+    # Helper function to process a single batch.
     def process_batch(batch):
         truncated_batch = [
             tokenizer.decode(tokenizer.encode(review, max_length=512, truncation=True), skip_special_tokens=True)
@@ -201,11 +209,11 @@ def process_sentiment_analysis(reviews, sentiment_analyzer, tokenizer, max_revie
             all_results.extend(batch_results)
             all_truncated_reviews.extend(truncated_batch)
             
-    # Convert results into a DataFrame
+    # Convert results into a DataFrame.
     sentiment_df = pd.DataFrame(all_results)
     sentiment_df['review'] = all_truncated_reviews
     
-    # Map model labels to human-readable names
+    # Map model output labels to human-readable names.
     label_map = {"LABEL_0": "Negative", "LABEL_1": "Neutral", "LABEL_2": "Positive"}
     sentiment_df['label'] = sentiment_df['label'].map(label_map)
     
@@ -233,31 +241,31 @@ def visualize_sentiment(sentiment_df):
     fig.show()
 
 def main():
-    # Initialize the logger
+    # Initialize the logger using our configuration function.
     global logger
     logger = configure_logger()
     
-    # Load the reviews from the dataset
+    # Load the reviews from the dataset.
     file_path = r"1-Database\amazon_co-ecommerce_sample.csv"
     logger.info("Loading reviews from file.")
     reviews = load_reviews(file_path)
     logger.info(f"Loaded {len(reviews)} reviews.")
     
-    # Preprocess reviews (e.g., lower-casing, cleaning text)
+    # Preprocess the reviews (e.g., lower-casing, cleaning text).
     reviews = preprocess_reviews(reviews)
     
-    # Train the hierarchical topic model
+    # Train the hierarchical topic model.
     topic_model, topics, probs = train_topic_model(reviews)
     hierarchical_topics = extract_hierarchical_topics(topic_model, reviews)
     
-    # Save the topic model with iterative naming if previous versions exist
+    # Save the topic model with iterative naming if previous versions exist.
     model_save_path = get_iterative_path(r"3-Saved-Model\bertopic_model")
     save_topic_model(topic_model, path=model_save_path)
     
-    # Initialize the sentiment analysis pipeline
+    # Initialize the sentiment analysis pipeline.
     sentiment_analyzer, tokenizer = initialize_sentiment_pipeline()
     
-    # Process sentiment analysis using parallel processing
+    # Process sentiment analysis using parallel processing.
     sentiment_df = process_sentiment_analysis(
         reviews, 
         sentiment_analyzer, 
@@ -267,12 +275,12 @@ def main():
         max_workers=4
     )
     
-    # Save sentiment analysis results with iterative naming under a dedicated folder
+    # Save sentiment analysis results with iterative naming under a dedicated folder.
     csv_save_path = get_iterative_path(r"4-Results-Data\sentiment_results", extension=".csv")
     sentiment_df.to_csv(csv_save_path, index=False)
     logger.info(f"Sentiment analysis results saved to '{csv_save_path}'.")
     
-    # Optional: Visualize sentiment distribution for exploratory analysis
+    # Optional: Visualize the sentiment distribution for exploratory analysis.
     visualize_sentiment(sentiment_df)
 
 if __name__ == "__main__":

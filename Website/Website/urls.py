@@ -3,6 +3,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Include the sentiment_api app's URLs under the base path "api/"
-    path('api/', include('sentiment_api.urls')),
+    path('api/', include('sentiment_api.urls')),  # All URLs in sentiment_api/ will be prefixed with /api/
 ]
