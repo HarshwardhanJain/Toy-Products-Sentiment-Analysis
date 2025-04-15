@@ -3,10 +3,10 @@ bertopic_model
 sentiment_results.csv
 3-Saved-Model/
 4-Results-Data/
-Website/__pycache__/
-Website/sentiment_api/__pycache__/
-Website/sentiment_api/migrations/__pycache__/
-Website/Website/__pycache__/
+backend/__pycache__/
+backend/sentiment_api/__pycache__/
+backend/sentiment_api/migrations/__pycache__/
+backend/Website/__pycache__/
 frontend/node_modules
 frontend/public
 frontend/src
