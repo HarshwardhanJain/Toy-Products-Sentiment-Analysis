@@ -53,6 +53,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
 ]
 
+# For development, allow all
+CORS_ALLOW_ALL_ORIGINS = True  # For dev only. Use whitelist in production.
+
 ROOT_URLCONF = 'Website.urls'
 
 TEMPLATES = [
