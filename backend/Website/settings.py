@@ -56,6 +56,15 @@ MIDDLEWARE = [
 # For development, allow all
 CORS_ALLOW_ALL_ORIGINS = True  # For dev only. Use whitelist in production.
 
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+]
+
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+]
+
 ROOT_URLCONF = 'Website.urls'
 
 TEMPLATES = [

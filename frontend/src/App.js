@@ -1,27 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function App() {
-  // State to hold the user review, the prediction result, and potential error messages.
   const [review, setReview] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Function to handle form submission.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setResult(null);
     setLoading(true);
 
+    if (!review.trim()) {
+      setError("Please enter a review before submitting.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch("http://127.0.0.1:8000/api/predict/sentiment/", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ review })
-      });      
+      });
       if (!response.ok) {
-        // If there is any error, throw an error to be caught in catch block.
         throw new Error('Server error: ' + response.statusText);
       }
       const data = await response.json();
@@ -31,6 +34,16 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (result) setError(null);
+  }, [result]);
+
+  const handleClear = () => {
+    setReview('');
+    setResult(null);
+    setError(null);
   };
 
   return (
@@ -43,14 +56,24 @@ function App() {
             id="review"
             value={review}
             onChange={(e) => setReview(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                handleSubmit(e);
+              }
+            }}
             rows="4"
             style={{ width: '100%', padding: '10px' }}
             placeholder="Type your review here..."
           />
         </div>
-        <button type="submit" style={{ padding: '10px 20px' }} disabled={loading}>
-          {loading ? 'Analyzing...' : 'Analyze Sentiment'}
-        </button>
+        <div style={{ marginBottom: '10px' }}>
+          <button type="submit" style={{ padding: '10px 20px', marginRight: '10px' }} disabled={loading}>
+            {loading ? '🔄 Analyzing...' : 'Analyze Sentiment'}
+          </button>
+          <button type="button" onClick={handleClear} style={{ padding: '10px 20px' }} disabled={loading}>
+            Clear
+          </button>
+        </div>
       </form>
 
       {error && (
@@ -61,6 +84,7 @@ function App() {
 
       {result && (
         <div style={{ marginTop: '20px' }}>
+          <p style={{ color: 'green' }}>✅ Sentiment analysis successful!</p>
           <h2>Prediction Result:</h2>
           <p>
             <strong>Sentiment:</strong> {result.label}
