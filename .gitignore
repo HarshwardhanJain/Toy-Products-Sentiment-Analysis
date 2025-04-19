@@ -6,4 +6,4 @@ backend/sentiment_api/__pycache__/
 backend/sentiment_api/migrations/__pycache__/
 backend/Website/__pycache__/
 
-frontend/node_modules
+frontend-new/node_modules
