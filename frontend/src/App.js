@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { motion } from 'framer-motion';
@@ -9,18 +9,32 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [analysisTime, setAnalysisTime] = useState(null);
+
+  useEffect(() => {
+    document.title = '🔍 Sentiment Analyzer';
+  }, []);
+
+  const countWords = (text) => {
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  };
+
+  const countChars = (text) => {
+    return text.length;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setResult(null);
 
-    if (!review.trim()) {
-      toast.error("🚫 Please enter a review first!");
+    if (countWords(review) < 5) {
+      toast.error("🚫 Please enter at least 5 words for better analysis.");
       return;
     }
 
     setLoading(true);
+    const startTime = performance.now();
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/predict/sentiment/", {
@@ -34,8 +48,11 @@ function App() {
       }
 
       const data = await response.json();
+      const endTime = performance.now();
+      setAnalysisTime(((endTime - startTime) / 1000).toFixed(2)); // seconds
+
       setResult(data);
-      setReview(''); // Auto clear after submit
+      setReview('');
       toast.success("🎉 Sentiment analysis complete!");
     } catch (err) {
       setError(err.message);
@@ -49,6 +66,7 @@ function App() {
     setReview('');
     setResult(null);
     setError(null);
+    setAnalysisTime(null);
     toast.info("🧹 Cleared review and result!");
   };
 
@@ -60,13 +78,20 @@ function App() {
     return 'bg-white';
   };
 
+  const getSentimentEmoji = (label) => {
+    if (label === 'Positive') return '😃';
+    if (label === 'Negative') return '😞';
+    if (label === 'Neutral') return '😐';
+    return '';
+  };
+
   return (
     <div className={`min-h-screen flex items-center justify-center ${getBackgroundColor()} transition-colors duration-700`}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
+        initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl p-8 bg-white rounded-2xl shadow-xl"
+        transition={{ duration: 0.6 }}
+        className="w-full max-w-2xl p-8 bg-white rounded-2xl shadow-2xl"
       >
         <h1 className="text-4xl font-bold mb-6 text-center text-gray-800 tracking-wide">🔍 Sentiment Analyzer</h1>
 
@@ -81,14 +106,18 @@ function App() {
               onChange={(e) => setReview(e.target.value)}
               rows="5"
               placeholder="Type something like 'The product quality is amazing!'..."
-              className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-gray-700"
+              className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-gray-700 placeholder:italic placeholder:text-gray-400"
             />
+            <div className="mt-2 text-sm text-gray-500">
+              Words: {countWords(review)} | Characters: {countChars(review)}
+            </div>
           </div>
 
           <div className="flex justify-center space-x-4">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg flex items-center justify-center transition"
+              className={`font-semibold py-2 px-6 rounded-lg flex items-center justify-center transition
+              ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
               disabled={loading}
             >
               {loading ? (
@@ -107,7 +136,8 @@ function App() {
             <button
               type="button"
               onClick={handleClear}
-              className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg transition"
+              className={`font-semibold py-2 px-6 rounded-lg transition
+              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
               disabled={loading}
             >
               Clear
@@ -125,16 +155,25 @@ function App() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.3 }}
             className="mt-8 text-center"
           >
             <h2 className="text-2xl font-bold mb-4 text-gray-800">📈 Prediction Result</h2>
             <p className="text-xl text-gray-700">
-              <strong>Sentiment:</strong> {result.label}
+              <strong>Sentiment:</strong> {result.label} {getSentimentEmoji(result.label)}
             </p>
-            <p className="text-lg text-gray-600 mt-2">
-              <strong>Confidence:</strong> {result.score.toFixed(2)}
-            </p>
+            <div className="w-full mt-4">
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div
+                  className="bg-blue-600 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${(result.score * 100).toFixed(0)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-gray-600 text-sm">Confidence: {(result.score * 100).toFixed(2)}%</p>
+              {analysisTime && (
+                <p className="mt-1 text-gray-500 text-sm">Analyzed in {analysisTime} sec</p>
+              )}
+            </div>
           </motion.div>
         )}
 
