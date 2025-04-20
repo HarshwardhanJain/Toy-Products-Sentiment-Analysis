@@ -10,18 +10,30 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysisTime, setAnalysisTime] = useState(null);
+  const [randomImage, setRandomImage] = useState('');
+
+  // 🖼️ Fetch random image from Django backend
+  const fetchRandomImage = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/random-image/");
+      const data = await response.json();
+      if (response.ok && data.image_url) {
+        setRandomImage(`http://127.0.0.1:8000${data.image_url}`);
+      } else {
+        console.error("Failed to load image");
+      }
+    } catch (error) {
+      console.error("Error fetching random image:", error);
+    }
+  };
 
   useEffect(() => {
     document.title = '🔍 Sentiment Analyzer';
+    fetchRandomImage(); // Load a random image at start
   }, []);
 
-  const countWords = (text) => {
-    return text.trim().split(/\s+/).filter(Boolean).length;
-  };
-
-  const countChars = (text) => {
-    return text.length;
-  };
+  const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
+  const countChars = (text) => text.length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,10 +61,11 @@ function App() {
 
       const data = await response.json();
       const endTime = performance.now();
-      setAnalysisTime(((endTime - startTime) / 1000).toFixed(2)); // seconds
+      setAnalysisTime(((endTime - startTime) / 1000).toFixed(2));
 
       setResult(data);
       setReview('');
+      fetchRandomImage(); // Refresh random image after analyzing
       toast.success("🎉 Sentiment analysis complete!");
     } catch (err) {
       setError(err.message);
@@ -86,12 +99,14 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center ${getBackgroundColor()} transition-colors duration-700`}>
+    <div className={`min-h-screen flex flex-col md:flex-row items-center justify-center ${getBackgroundColor()} transition-colors duration-700`}>
+      
+      {/* Left: Form Section */}
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6 }}
-        className="w-full max-w-2xl p-8 bg-white rounded-2xl shadow-2xl"
+        className="w-full md:w-1/2 p-8 bg-white rounded-2xl shadow-2xl m-4"
       >
         <h1 className="text-4xl font-bold mb-6 text-center text-gray-800 tracking-wide">🔍 Sentiment Analyzer</h1>
 
@@ -119,16 +134,10 @@ function App() {
               type="submit"
               className={`font-semibold py-2 px-6 rounded-lg flex items-center justify-center transition
               ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-              disabled={loading}
+              disabled={loading || countWords(review) < 5}
             >
               {loading ? (
-                <Circles
-                  height="24"
-                  width="24"
-                  color="white"
-                  ariaLabel="circles-loading"
-                  visible={true}
-                />
+                <Circles height="24" width="24" color="white" ariaLabel="circles-loading" visible={true} />
               ) : (
                 "Analyze"
               )}
@@ -138,8 +147,8 @@ function App() {
               type="button"
               onClick={handleClear}
               className={`font-semibold py-2 px-6 rounded-lg transition
-              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
-              disabled={loading}
+              ${loading || review.trim().length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+              disabled={loading || review.trim().length === 0}
             >
               Clear
             </button>
@@ -165,12 +174,12 @@ function App() {
             </p>
             <div className="w-full mt-4">
               <div className="w-full bg-gray-200 rounded-full h-4">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(result.score * 100).toFixed(0)}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="bg-blue-600 h-4 rounded-full"
-              />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(result.score * 100).toFixed(0)}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="bg-blue-600 h-4 rounded-full"
+                />
               </div>
               <p className="mt-2 text-gray-600 text-sm">Confidence: {(result.score * 100).toFixed(2)}%</p>
               {analysisTime && (
@@ -192,6 +201,27 @@ function App() {
           theme="colored"
         />
       </motion.div>
+
+      {/* Right: Random Image Section */}
+      <motion.div
+        initial={{ opacity: 0, x: 100 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.7 }}
+        className="hidden md:flex w-full md:w-1/2 flex-col items-center p-6 bg-white rounded-2xl shadow-2xl m-4"
+      >
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">🛒 Product Reference</h2>
+        {randomImage && (
+          <img
+            src={randomImage}
+            alt="Sample Product"
+            className="rounded-xl shadow-md object-cover w-80 h-80"
+          />
+        )}
+        <p className="mt-4 text-gray-500 text-sm text-center">
+          (Random product visual to guide your review.)
+        </p>
+      </motion.div>
+
     </div>
   );
 }

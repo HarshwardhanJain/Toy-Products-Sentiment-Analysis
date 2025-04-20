@@ -1,6 +1,7 @@
 from django.urls import path
-from .views import predict_sentiment
+from . import views
 
 urlpatterns = [
-    path('predict/sentiment/', predict_sentiment, name='predict_sentiment'),
+    path('predict/sentiment/', views.predict_sentiment, name='predict_sentiment'),
+    path('random-image/', views.get_random_image, name='random_image'),
 ]
