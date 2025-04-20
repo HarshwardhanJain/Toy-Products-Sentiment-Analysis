@@ -106,6 +106,7 @@ function App() {
               onChange={(e) => setReview(e.target.value)}
               rows="5"
               placeholder="Type something like 'The product quality is amazing!'..."
+              autoFocus
               className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-gray-700 placeholder:italic placeholder:text-gray-400"
             />
             <div className="mt-2 text-sm text-gray-500">
@@ -164,10 +165,12 @@ function App() {
             </p>
             <div className="w-full mt-4">
               <div className="w-full bg-gray-200 rounded-full h-4">
-                <div
-                  className="bg-blue-600 h-4 rounded-full transition-all duration-500"
-                  style={{ width: `${(result.score * 100).toFixed(0)}%` }}
-                />
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(result.score * 100).toFixed(0)}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="bg-blue-600 h-4 rounded-full"
+              />
               </div>
               <p className="mt-2 text-gray-600 text-sm">Confidence: {(result.score * 100).toFixed(2)}%</p>
               {analysisTime && (
