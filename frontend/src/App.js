@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Circles } from 'react-loader-spinner';
 
 function App() {
@@ -11,17 +11,18 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [analysisTime, setAnalysisTime] = useState(null);
 
-  const [images, setImages] = useState([]);  // Store all images
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);  // Current index
+  const [images, setImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState('right'); // 🚀 NEW: for slide animation
 
-  // Fetch all images once
+  // Fetch all images
   const fetchAllImages = async () => {
     try {
       const response = await fetch("http://127.0.0.1:8000/api/all-images/");
       const data = await response.json();
       if (response.ok && data.images) {
         setImages(data.images);
-        setCurrentImageIndex(0); // Start at first image
+        setCurrentImageIndex(0);
       } else {
         console.error("Failed to load images");
       }
@@ -36,10 +37,12 @@ function App() {
   }, []);
 
   const handlePrevImage = () => {
+    setSlideDirection('left');
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
   const handleNextImage = () => {
+    setSlideDirection('right');
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
@@ -220,7 +223,7 @@ function App() {
         className="hidden md:flex w-full md:w-1/2 flex-col items-center p-6 bg-white rounded-2xl shadow-2xl m-4 relative"
       >
         <h2 className="text-2xl font-bold mb-4 text-gray-800">🛒 Product Reference</h2>
-        
+
         {/* Left Arrow */}
         <button
           onClick={handlePrevImage}
@@ -229,14 +232,23 @@ function App() {
           ←
         </button>
 
-        {/* Image */}
-        {images.length > 0 && (
-          <img
-            src={`http://127.0.0.1:8000${images[currentImageIndex]}`}
-            alt="Sample Product"
-            className="rounded-xl shadow-md object-cover w-80 h-80"
-          />
-        )}
+        {/* Image with slide animation */}
+        <div className="relative w-80 h-80 overflow-hidden">
+          <AnimatePresence mode="wait">
+            {images.length > 0 && (
+              <motion.img
+                key={currentImageIndex}
+                src={`http://127.0.0.1:8000${images[currentImageIndex]}`}
+                alt="Sample Product"
+                className="rounded-xl shadow-md object-cover w-80 h-80 absolute"
+                initial={{ x: slideDirection === 'right' ? 300 : -300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: slideDirection === 'right' ? -300 : 300, opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+              />
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Right Arrow */}
         <button
