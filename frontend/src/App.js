@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Circles } from 'react-loader-spinner';
 
 function App() {
@@ -10,19 +10,20 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysisTime, setAnalysisTime] = useState(null);
-
   const [images, setImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState('right'); // 🚀 NEW: for slide animation
 
-  // Fetch all images
+  useEffect(() => {
+    document.title = '🔍 Sentiment Analyzer';
+    fetchAllImages();
+  }, []);
+
   const fetchAllImages = async () => {
     try {
       const response = await fetch("http://127.0.0.1:8000/api/all-images/");
       const data = await response.json();
       if (response.ok && data.images) {
         setImages(data.images);
-        setCurrentImageIndex(0);
       } else {
         console.error("Failed to load images");
       }
@@ -31,35 +32,38 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    document.title = '🔍 Sentiment Analyzer';
-    fetchAllImages();
-  }, []);
-
   const handlePrevImage = () => {
-    setSlideDirection('left');
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
   const handleNextImage = () => {
-    setSlideDirection('right');
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
+  const handleSurpriseMe = () => {
+    if (images.length > 1) {
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * images.length);
+      } while (randomIndex === currentImageIndex);
+      setCurrentImageIndex(randomIndex);
+    }
+  };
+
+  const countWords = (text) => text.trim().split(/\s+/).length;
   const countChars = (text) => text.length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
-    setResult(null);
-
     if (countWords(review) < 5) {
       toast.error("🚫 Please enter at least 5 words for better analysis.");
       return;
     }
 
     setLoading(true);
+    setError(null);
+    setResult(null);
+
     const startTime = performance.now();
 
     try {
@@ -69,20 +73,18 @@ function App() {
         body: JSON.stringify({ review }),
       });
 
-      if (!response.ok) {
-        throw new Error('Server error: ' + response.statusText);
-      }
+      if (!response.ok) throw new Error('Server error: ' + response.statusText);
 
       const data = await response.json();
       const endTime = performance.now();
-      setAnalysisTime(((endTime - startTime) / 1000).toFixed(2));
 
       setResult(data);
+      setAnalysisTime(((endTime - startTime) / 1000).toFixed(2));
       setReview('');
       toast.success("🎉 Sentiment analysis complete!");
     } catch (err) {
-      setError(err.message);
       toast.error(`❌ ${err.message}`);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -114,14 +116,14 @@ function App() {
   return (
     <div className={`min-h-screen flex flex-col md:flex-row items-center justify-center ${getBackgroundColor()} transition-colors duration-700`}>
       
-      {/* Left: Form Section */}
+      {/* Left Section */}
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6 }}
         className="w-full md:w-1/2 p-8 bg-white rounded-2xl shadow-2xl m-4"
       >
-        <h1 className="text-4xl font-bold mb-6 text-center text-gray-800 tracking-wide">🔍 Sentiment Analyzer</h1>
+        <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">🔍 Sentiment Analyzer</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -135,7 +137,7 @@ function App() {
               rows="5"
               placeholder="Type something like 'The product quality is amazing!'..."
               autoFocus
-              className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-gray-700 placeholder:italic placeholder:text-gray-400"
+              className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-gray-700"
             />
             <div className="mt-2 text-sm text-gray-500">
               Words: {countWords(review)} | Characters: {countChars(review)}
@@ -145,9 +147,8 @@ function App() {
           <div className="flex justify-center space-x-4">
             <button
               type="submit"
-              className={`font-semibold py-2 px-6 rounded-lg flex items-center justify-center transition
-              ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
               disabled={loading}
+              className={`font-semibold py-2 px-6 rounded-lg transition ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
             >
               {loading ? (
                 <Circles height="24" width="24" color="white" ariaLabel="circles-loading" visible={true} />
@@ -158,10 +159,9 @@ function App() {
 
             <button
               type="button"
-              onClick={handleClear}
-              className={`font-semibold py-2 px-6 rounded-lg transition
-              ${loading || review.trim().length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
               disabled={loading || review.trim().length === 0}
+              onClick={handleClear}
+              className="font-semibold py-2 px-6 rounded-lg bg-gray-500 hover:bg-gray-600 text-white transition"
             >
               Clear
             </button>
@@ -195,27 +195,15 @@ function App() {
                 />
               </div>
               <p className="mt-2 text-gray-600 text-sm">Confidence: {(result.score * 100).toFixed(2)}%</p>
-              {analysisTime && (
-                <p className="mt-1 text-gray-500 text-sm">Analyzed in {analysisTime} sec</p>
-              )}
+              {analysisTime && <p className="mt-1 text-gray-500 text-sm">Analyzed in {analysisTime} sec</p>}
             </div>
           </motion.div>
         )}
 
-        <ToastContainer
-          position="bottom-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="colored"
-        />
+        <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} theme="colored" />
       </motion.div>
 
-      {/* Right: Product Image Section */}
+      {/* Right Section */}
       <motion.div
         initial={{ opacity: 0, x: 100 }}
         animate={{ opacity: 1, x: 0 }}
@@ -232,23 +220,18 @@ function App() {
           ←
         </button>
 
-        {/* Image with slide animation */}
-        <div className="relative w-80 h-80 overflow-hidden">
-          <AnimatePresence mode="wait">
-            {images.length > 0 && (
-              <motion.img
-                key={currentImageIndex}
-                src={`http://127.0.0.1:8000${images[currentImageIndex]}`}
-                alt="Sample Product"
-                className="rounded-xl shadow-md object-cover w-80 h-80 absolute"
-                initial={{ x: slideDirection === 'right' ? 300 : -300, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: slideDirection === 'right' ? -300 : 300, opacity: 0 }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-              />
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Product Image */}
+        {images.length > 0 && (
+          <motion.img
+            key={currentImageIndex}
+            src={`http://127.0.0.1:8000${images[currentImageIndex]}`}
+            alt="Product"
+            className="rounded-xl shadow-md object-cover w-80 h-80"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          />
+        )}
 
         {/* Right Arrow */}
         <button
@@ -258,11 +241,19 @@ function App() {
           →
         </button>
 
+        {/* Surprise Me Button */}
+        <motion.button
+          whileTap={{ scale: 1.2, y: -5 }}
+          onClick={handleSurpriseMe}
+          className="mt-6 px-5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-full font-semibold shadow-md"
+        >
+          🎲 Surprise Me
+        </motion.button>
+
         <p className="mt-4 text-gray-500 text-sm text-center">
-          (Select product visual to guide your review.)
+          (Select or surprise yourself with a product visual.)
         </p>
       </motion.div>
-
     </div>
   );
 }
