@@ -10,27 +10,38 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysisTime, setAnalysisTime] = useState(null);
-  const [randomImage, setRandomImage] = useState('');
 
-  // 🖼️ Fetch random image from Django backend
-  const fetchRandomImage = async () => {
+  const [images, setImages] = useState([]);  // Store all images
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);  // Current index
+
+  // Fetch all images once
+  const fetchAllImages = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/random-image/");
+      const response = await fetch("http://127.0.0.1:8000/api/all-images/");
       const data = await response.json();
-      if (response.ok && data.image_url) {
-        setRandomImage(`http://127.0.0.1:8000${data.image_url}`);
+      if (response.ok && data.images) {
+        setImages(data.images);
+        setCurrentImageIndex(0); // Start at first image
       } else {
-        console.error("Failed to load image");
+        console.error("Failed to load images");
       }
     } catch (error) {
-      console.error("Error fetching random image:", error);
+      console.error("Error fetching images:", error);
     }
   };
 
   useEffect(() => {
     document.title = '🔍 Sentiment Analyzer';
-    fetchRandomImage(); // Load a random image at start
+    fetchAllImages();
   }, []);
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
 
   const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
   const countChars = (text) => text.length;
@@ -65,7 +76,6 @@ function App() {
 
       setResult(data);
       setReview('');
-      fetchRandomImage(); // Refresh random image after analyzing
       toast.success("🎉 Sentiment analysis complete!");
     } catch (err) {
       setError(err.message);
@@ -134,7 +144,7 @@ function App() {
               type="submit"
               className={`font-semibold py-2 px-6 rounded-lg flex items-center justify-center transition
               ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-              disabled={loading || countWords(review) < 5}
+              disabled={loading}
             >
               {loading ? (
                 <Circles height="24" width="24" color="white" ariaLabel="circles-loading" visible={true} />
@@ -202,23 +212,42 @@ function App() {
         />
       </motion.div>
 
-      {/* Right: Random Image Section */}
+      {/* Right: Product Image Section */}
       <motion.div
         initial={{ opacity: 0, x: 100 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7 }}
-        className="hidden md:flex w-full md:w-1/2 flex-col items-center p-6 bg-white rounded-2xl shadow-2xl m-4"
+        className="hidden md:flex w-full md:w-1/2 flex-col items-center p-6 bg-white rounded-2xl shadow-2xl m-4 relative"
       >
         <h2 className="text-2xl font-bold mb-4 text-gray-800">🛒 Product Reference</h2>
-        {randomImage && (
+        
+        {/* Left Arrow */}
+        <button
+          onClick={handlePrevImage}
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-3xl font-bold text-gray-500 hover:text-gray-700"
+        >
+          ←
+        </button>
+
+        {/* Image */}
+        {images.length > 0 && (
           <img
-            src={randomImage}
+            src={`http://127.0.0.1:8000${images[currentImageIndex]}`}
             alt="Sample Product"
             className="rounded-xl shadow-md object-cover w-80 h-80"
           />
         )}
+
+        {/* Right Arrow */}
+        <button
+          onClick={handleNextImage}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-3xl font-bold text-gray-500 hover:text-gray-700"
+        >
+          →
+        </button>
+
         <p className="mt-4 text-gray-500 text-sm text-center">
-          (Random product visual to guide your review.)
+          (Select product visual to guide your review.)
         </p>
       </motion.div>
 

@@ -68,26 +68,26 @@ def predict_sentiment(request):
         response["Access-Control-Allow-Origin"] = "*"
         return response
 
-# ===================== Random Image Serving API =====================
-
+# ===================== Image Serving API =====================
+# Add a new API to send all image names
 @csrf_exempt
-def get_random_image(request):
+def get_all_images(request):
     if request.method == "GET":
         try:
-            sample_folder = os.path.join(settings.BASE_DIR, "sample-toys")  # ⬅️ Correct path
+            sample_folder = os.path.join(settings.BASE_DIR, "sample-toys")
             images = [f for f in os.listdir(sample_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
-            
+
             if not images:
                 return JsonResponse({"error": "No images found."}, status=404)
 
-            random_image = random.choice(images)
-            image_url = f"/sample-toys/{random_image}"  # relative URL for serving via static files
+            # Send all image URLs
+            image_urls = [f"/sample-toys/{img}" for img in images]
 
-            response = JsonResponse({"image_url": image_url})
+            response = JsonResponse({"images": image_urls})
             response["Access-Control-Allow-Origin"] = "*"
             return response
         except Exception as e:
-            logger.error("Random image error: %s", e)
+            logger.error("Error fetching all images: %s", e)
             response = JsonResponse({"error": str(e)}, status=500)
             response["Access-Control-Allow-Origin"] = "*"
             return response

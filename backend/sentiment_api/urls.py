@@ -3,5 +3,5 @@ from . import views
 
 urlpatterns = [
     path('predict/sentiment/', views.predict_sentiment, name='predict_sentiment'),
-    path('random-image/', views.get_random_image, name='random_image'),
+    path('all-images/', views.get_all_images, name='all_images'),
 ]
