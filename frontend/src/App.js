@@ -12,6 +12,8 @@ function App() {
   const [analysisTime, setAnalysisTime] = useState(null);
   const [images, setImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [useCustomModel, setUseCustomModel] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   useEffect(() => {
     document.title = '🔍 Sentiment Analyzer';
@@ -70,7 +72,11 @@ function App() {
       const response = await fetch("http://127.0.0.1:8000/api/predict/sentiment/", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review }),
+        body: JSON.stringify({
+          review,
+          model: useCustomModel ? 'custom' : 'pretrained',
+          compare: compareMode,
+        }),
       });
 
       if (!response.ok) throw new Error('Server error: ' + response.statusText);
@@ -80,7 +86,6 @@ function App() {
 
       setResult(data);
       setAnalysisTime(((endTime - startTime) / 1000).toFixed(2));
-      setReview('');
       toast.success("🎉 Sentiment analysis complete!");
     } catch (err) {
       toast.error(`❌ ${err.message}`);
@@ -100,6 +105,7 @@ function App() {
 
   const getBackgroundColor = () => {
     if (!result) return 'bg-white';
+    if (compareMode) return 'bg-blue-50';
     if (result.label === 'Positive') return 'bg-green-100';
     if (result.label === 'Negative') return 'bg-red-100';
     if (result.label === 'Neutral') return 'bg-yellow-100';
@@ -115,7 +121,7 @@ function App() {
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row items-center justify-center ${getBackgroundColor()} transition-colors duration-700`}>
-      
+
       {/* Left Section */}
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -125,6 +131,36 @@ function App() {
       >
         <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">🔍 Sentiment Analyzer</h1>
 
+        {/* Toggle Switches */}
+        <div className="flex items-center justify-center mb-6 space-x-6">
+          {/* Use Custom Model Toggle */}
+          <div className="flex items-center">
+            <span className="mr-2 font-semibold text-gray-700">Use Custom Model</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={useCustomModel}
+                onChange={() => {
+                  if (!compareMode) setUseCustomModel(!useCustomModel);
+                }}
+                disabled={compareMode}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* Compare Mode Toggle */}
+          <div className="flex items-center">
+            <span className="mr-2 font-semibold text-gray-700">Compare Both</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={compareMode} onChange={() => setCompareMode(!compareMode)} />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+        </div>
+
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="review" className="block text-lg font-semibold mb-2 text-gray-700">
@@ -168,42 +204,98 @@ function App() {
           </div>
         </form>
 
+        {/* Results (Single or Compare) */}
+        {/* Results Section */}
         {error && (
           <div className="mt-6 p-4 bg-red-100 text-red-800 rounded-lg text-center">
             <strong>Error:</strong> {error}
           </div>
         )}
 
-        {result && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-8 text-center"
-          >
+        {/* Single Prediction */}
+        {result && !compareMode && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-8 text-center">
             <h2 className="text-2xl font-bold mb-4 text-gray-800">📈 Prediction Result</h2>
-            <p className="text-xl text-gray-700">
+            <p className="text-xl text-gray-700 mb-2">
               <strong>Sentiment:</strong> {result.label} {getSentimentEmoji(result.label)}
             </p>
-            <div className="w-full mt-4">
-              <div className="w-full bg-gray-200 rounded-full h-4">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(result.score * 100).toFixed(0)}%` }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="bg-blue-600 h-4 rounded-full"
-                />
-              </div>
-              <p className="mt-2 text-gray-600 text-sm">Confidence: {(result.score * 100).toFixed(2)}%</p>
-              {analysisTime && <p className="mt-1 text-gray-500 text-sm">Analyzed in {analysisTime} sec</p>}
+            <div className="w-full bg-gray-300 rounded-full h-4 mx-auto max-w-md mb-2">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(result.score * 100).toFixed(0)}%` }}
+                transition={{ duration: 0.8 }}
+                className="h-4 rounded-full bg-blue-600"
+              />
             </div>
+            <p className="text-sm text-gray-600">Confidence: {(result.score * 100).toFixed(2)}%</p>
+            {analysisTime && <p className="mt-2 text-gray-500 text-sm">Analyzed in {analysisTime} sec</p>}
           </motion.div>
+        )}
+
+        {/* Compare Mode Prediction */}
+        {result && compareMode && (
+          <div className="mt-8 space-y-6">
+            {/* Verdict */}
+            <div className="text-center mb-6">
+              {result.pretrained.label === result.custom.label ? (
+                <p className="text-green-600 font-semibold text-lg">
+                  ✅ Both models agree: <span className="capitalize">{result.pretrained.label}</span>!
+                </p>
+              ) : (
+                <p className="text-red-600 font-semibold text-lg">
+                  ⚡ Models differ: Pretrained → <span className="capitalize">{result.pretrained.label}</span>, Custom → <span className="capitalize">{result.custom.label}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Dual Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Pretrained */}
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-gray-100 rounded-xl shadow-md text-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-3">🧠 Pretrained Model</h3>
+                <p className="text-lg mb-2">
+                  <strong>Sentiment:</strong> {result.pretrained.label} {getSentimentEmoji(result.pretrained.label)}
+                </p>
+                <div className="w-full bg-gray-300 rounded-full h-4 mx-auto max-w-md mb-2">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(result.pretrained.score * 100).toFixed(0)}%` }}
+                    transition={{ duration: 0.8 }}
+                    className="h-4 rounded-full bg-blue-600"
+                  />
+                </div>
+                <p className="text-sm text-gray-600">Confidence: {(result.pretrained.score * 100).toFixed(2)}%</p>
+              </motion.div>
+
+              {/* Custom */}
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-gray-100 rounded-xl shadow-md text-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-3">🛠️ Custom Model</h3>
+                <p className="text-lg mb-2">
+                  <strong>Sentiment:</strong> {result.custom.label} {getSentimentEmoji(result.custom.label)}
+                </p>
+                <div className="w-full bg-gray-300 rounded-full h-4 mx-auto max-w-md mb-2">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(result.custom.score * 100).toFixed(0)}%` }}
+                    transition={{ duration: 0.8 }}
+                    className="h-4 rounded-full bg-purple-600"
+                  />
+                </div>
+                <p className="text-sm text-gray-600">Confidence: {(result.custom.score * 100).toFixed(2)}%</p>
+              </motion.div>
+            </div>
+
+            {/* Analyzed time */}
+            {analysisTime && (
+              <p className="mt-4 text-center text-gray-500 text-sm">Analyzed in {analysisTime} sec</p>
+            )}
+          </div>
         )}
 
         <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} theme="colored" />
       </motion.div>
 
-      {/* Right Section */}
+      {/* Right Section — Product Images */}
       <motion.div
         initial={{ opacity: 0, x: 100 }}
         animate={{ opacity: 1, x: 0 }}
@@ -213,14 +305,11 @@ function App() {
         <h2 className="text-2xl font-bold mb-4 text-gray-800">🛒 Product Reference</h2>
 
         {/* Left Arrow */}
-        <button
-          onClick={handlePrevImage}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-3xl font-bold text-gray-500 hover:text-gray-700"
-        >
+        <button onClick={handlePrevImage} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-3xl font-bold text-gray-500 hover:text-gray-700">
           ←
         </button>
 
-        {/* Product Image */}
+        {/* Image */}
         {images.length > 0 && (
           <motion.img
             key={currentImageIndex}
@@ -234,19 +323,12 @@ function App() {
         )}
 
         {/* Right Arrow */}
-        <button
-          onClick={handleNextImage}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-3xl font-bold text-gray-500 hover:text-gray-700"
-        >
+        <button onClick={handleNextImage} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-3xl font-bold text-gray-500 hover:text-gray-700">
           →
         </button>
 
         {/* Surprise Me Button */}
-        <motion.button
-          whileTap={{ scale: 1.2, y: -5 }}
-          onClick={handleSurpriseMe}
-          className="mt-6 px-5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-full font-semibold shadow-md"
-        >
+        <motion.button whileTap={{ scale: 1.2, y: -5 }} onClick={handleSurpriseMe} className="mt-6 px-5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-full font-semibold shadow-md">
           🎲 Surprise Me
         </motion.button>
 
