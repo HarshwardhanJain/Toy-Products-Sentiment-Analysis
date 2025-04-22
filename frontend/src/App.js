@@ -219,6 +219,9 @@ function App() {
             <p className="text-xl text-gray-700 mb-2">
               <strong>Sentiment:</strong> {result.label} {getSentimentEmoji(result.label)}
             </p>
+            <p className="text-sm text-gray-500 mb-2">
+              <strong>Model Used:</strong> {result.model_used}
+            </p>
             <div className="w-full bg-gray-300 rounded-full h-4 mx-auto max-w-md mb-2">
               <motion.div
                 initial={{ width: 0 }}
@@ -265,6 +268,7 @@ function App() {
                   />
                 </div>
                 <p className="text-sm text-gray-600">Confidence: {(result.pretrained.score * 100).toFixed(2)}%</p>
+                <p className="text-sm text-gray-500 mt-1">Model: {result.pretrained.model_used}</p>
               </motion.div>
 
               {/* Custom */}
@@ -282,6 +286,7 @@ function App() {
                   />
                 </div>
                 <p className="text-sm text-gray-600">Confidence: {(result.custom.score * 100).toFixed(2)}%</p>
+                <p className="text-sm text-gray-500 mt-1">Model: {result.custom.model_used}</p>
               </motion.div>
             </div>
 
