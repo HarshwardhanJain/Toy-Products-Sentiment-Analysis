@@ -1,6 +1,6 @@
 3_1-Saved-Models-TopicModelling/
 3_2-Saved-Models/
-5-Documents/
+6-Documents/
 
 backend/__pycache__/
 backend/sentiment_api/__pycache__/
@@ -11,3 +11,6 @@ frontend-new/node_modules
 
 logs/
 temp_output/
+
+logs_1/
+temp_output_1/

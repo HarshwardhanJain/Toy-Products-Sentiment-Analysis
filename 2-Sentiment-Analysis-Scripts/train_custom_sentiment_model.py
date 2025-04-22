@@ -4,6 +4,7 @@ import os
 import re
 import concurrent.futures
 import torch
+from tqdm import tqdm
 
 from transformers import (
     AutoTokenizer,
@@ -14,6 +15,15 @@ from transformers import (
 from sklearn.feature_extraction.text import CountVectorizer
 from datasets import Dataset
 import plotly.express as px
+from collections import defaultdict, Counter
+
+# Configuration
+CONFIG = {
+    "train_batch_size": 16,
+    "epochs": 2,
+    "prediction_batch_size": 10,
+    "max_workers": min(4, os.cpu_count() or 2),
+}
 
 # Configure Logger
 def configure_logger():
@@ -78,19 +88,55 @@ def split_customer_reviews(reviews):
             split_reviews.append(review)
     return split_reviews
 
-# Label reviews based on keywords
+# Extract rating from review text
+def extract_rating(text):
+    match = re.search(r"(\d\.\d)(?!\d)", text)
+    if match:
+        return float(match.group(1))
+    return None
+
+# Updated Label Reviews Based on Rating + Word Lists
 def label_reviews_from_rating(reviews):
-    labeled_data = []
+    rating_based_data = []
+    word_buckets = defaultdict(list)
+
     for review in reviews:
         review_lower = review.lower()
-        if any(word in review_lower for word in ["5.0", "excellent", "amazing", "great", "love", "perfect"]):
-            label = 2  # Positive
-        elif any(word in review_lower for word in ["1.0", "terrible", "bad", "worst", "awful"]):
-            label = 0  # Negative
+        rating = extract_rating(review_lower)
+
+        if rating is not None:
+            if rating >= 4.0:
+                label = 2  # Positive
+            elif rating >= 3.0:
+                label = 1  # Neutral
+            else:
+                label = 0  # Negative
         else:
-            label = 1  # Neutral
-        labeled_data.append((review, label))
-    return labeled_data
+            label = 1  # Default to Neutral if rating missing
+
+        rating_based_data.append((review, label))
+        words = re.findall(r'\b\w+\b', review_lower)
+        word_buckets[label].extend(words)
+
+    word_freq = {label: Counter(words) for label, words in word_buckets.items()}
+
+    # Always use same directory (overwrite CSVs)
+    save_dir = os.path.join("5-Word-Frequencies")
+    os.makedirs(save_dir, exist_ok=True)  # Create if missing but never create _1, _2, etc.
+
+    label_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
+
+    for label, counter in word_freq.items():
+        words, counts = zip(*counter.most_common()) if counter else ([], [])
+        df = pd.DataFrame({"word": words, "count": counts})
+        save_path = os.path.join(save_dir, f"{label_map[label]}_words.csv")
+        try:
+            df.to_csv(save_path, index=False)
+            logger.info(f"Saved (overwritten) word frequencies for label {label_map[label]} at {save_path}")
+        except Exception as e:
+            logger.error(f"Failed to save word frequency CSV at {save_path}: {str(e)}")
+
+    return rating_based_data
 
 # Create Dataset for Huggingface Trainer
 def create_dataset(labeled_data, tokenizer):
@@ -118,8 +164,8 @@ def train_custom_sentiment_model(labeled_data):
     training_args = TrainingArguments(
         output_dir=output_dir,
         evaluation_strategy="no",
-        per_device_train_batch_size=16,
-        num_train_epochs=2,
+        per_device_train_batch_size=CONFIG["train_batch_size"],
+        num_train_epochs=CONFIG["epochs"],
         logging_steps=10,
         save_steps=500,
         save_total_limit=1,
@@ -137,10 +183,14 @@ def train_custom_sentiment_model(labeled_data):
     trainer.train()
     return model, tokenizer
 
-# Predict Sentiments
-def predict_with_custom_model(reviews, model, tokenizer, batch_size=10, max_workers=4):
+# Predict Sentiments with Progress Bar
+def predict_with_custom_model(reviews, model, tokenizer, batch_size=CONFIG["prediction_batch_size"], max_workers=CONFIG["max_workers"]):
     model.eval()
-    device = next(model.parameters()).device
+
+    # Auto-detect device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
     results = []
 
     def predict_batch(batch):
@@ -152,11 +202,11 @@ def predict_with_custom_model(reviews, model, tokenizer, batch_size=10, max_work
         preds = torch.argmax(logits, dim=-1)
         return preds.tolist()
 
-    batches = [reviews[i:i+batch_size] for i in range(0, len(reviews), batch_size)]
+    batches = [reviews[i:i + batch_size] for i in range(0, len(reviews), batch_size)]
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_batch = {executor.submit(predict_batch, batch): batch for batch in batches}
-        for future in concurrent.futures.as_completed(future_to_batch):
+        for future in tqdm(concurrent.futures.as_completed(future_to_batch), total=len(batches), desc="Predicting"):
             try:
                 preds = future.result()
                 results.extend(preds)
