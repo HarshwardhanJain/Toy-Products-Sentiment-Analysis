@@ -3,9 +3,9 @@ from bertopic import BERTopic
 import plotly.express as px
 
 print("Loading the saved BERTopic model...")
-topic_model = BERTopic.load("bertopic_model")
+topic_model = BERTopic.load(r"3-Saved-Model\bertopic_model_1")
 
-df = pd.read_csv("amazon_co-ecommerce_sample.csv")
+df = pd.read_csv(r"1-Database\amazon_co-ecommerce_sample.csv")
 
 if 'customer_reviews' in df.columns:
     reviews = df['customer_reviews'].dropna().tolist()
@@ -31,7 +31,7 @@ print(topic_model.get_topic_info().head())
 print("\nLoading sentiment analysis results...")
 
 # Load or Re-compute sentiment analysis if needed
-sentiment_df = pd.read_csv("sentiment_results.csv")
+sentiment_df = pd.read_csv(r"4-Results-Data\sentiment_results_1.csv")
 if sentiment_df.empty:
     raise ValueError("Sentiment results file not found. Re-run sentiment analysis.")
 
