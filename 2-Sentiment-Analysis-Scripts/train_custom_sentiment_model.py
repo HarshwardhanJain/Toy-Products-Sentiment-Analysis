@@ -259,12 +259,13 @@ def main():
         predictions = predict_with_custom_model(reviews, model, tokenizer)
 
         sentiment_df = pd.DataFrame({"review": reviews, "label": predictions})
-        csv_save_path = get_iterative_path(r"4-Results-Data/sentiment_results", extension=".csv")
+        csv_save_path = get_iterative_path(r"4_2-Results-Data/sentiment_results", extension=".csv")
         os.makedirs(os.path.dirname(csv_save_path), exist_ok=True)
         sentiment_df.to_csv(csv_save_path, index=False)
         logger.info(f"Sentiment results saved to {csv_save_path}")
 
         visualize_sentiment(sentiment_df)
+        logger.info("Sentiment visualization completed.")
 
     except Exception as e:
         logger.exception(f"Fatal error in main execution: {str(e)}")
