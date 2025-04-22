@@ -7,3 +7,6 @@ backend/sentiment_api/migrations/__pycache__/
 backend/Website/__pycache__/
 
 frontend-new/node_modules
+
+logs/
+temp_output/
